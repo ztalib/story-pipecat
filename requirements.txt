@@ -1,7 +1,6 @@
-pipecat-ai[webrtc,daily,silero,deepgram,openai,cartesia,runner]>=0.0.83
+fastapi
+uvicorn[standard]
 python-dotenv
 websockets
 aiohttp
-fastrtc[vad,tts,stopword]==0.0.20.rc2
-uvicorn[standard]
-fastapi
+pipecat-ai[webrtc,daily,silero,deepgram,openai,cartesia,runner]>=0.0.83
