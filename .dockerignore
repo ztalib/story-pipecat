@@ -44,7 +44,7 @@ Thumbs.db
 conversations/
 
 # Cache
-cloudflare_credentials_cache.json
+# cloudflare_credentials_cache.json  # Commented out - needed for WebRTC
 
 # Documentation
 README.md
