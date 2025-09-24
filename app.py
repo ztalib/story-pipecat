@@ -200,7 +200,26 @@ async def webrtc_offer(request: dict, background_tasks: BackgroundTasks):
         os.makedirs("conversations")
     log_filename = f"conversations/convo_{date_str}.log"
 
-    pipecat_connection = SmallWebRTCConnection()
+    # Load Cloudflare TURN credentials and convert to string format
+    ice_servers = []
+    try:
+        with open("cloudflare_credentials_cache.json", "r") as f:
+            cf_data = json.load(f)
+            cf_ice_servers = cf_data.get("credentials", {}).get("iceServers", [])
+            
+            # Convert to string format that SmallWebRTCConnection expects
+            for server in cf_ice_servers:
+                if "urls" in server:
+                    for url in server["urls"]:
+                        ice_servers.append(url)
+            
+            print(f"Loaded {len(ice_servers)} ICE server URLs from Cloudflare")
+    except Exception as e:
+        print(f"Failed to load Cloudflare credentials: {e}")
+        # Fallback to free STUN servers
+        ice_servers = ["stun:stun.l.google.com:19302"]
+
+    pipecat_connection = SmallWebRTCConnection(ice_servers=ice_servers)
     await pipecat_connection.initialize(sdp=request["sdp"], type=request["type"])
 
     @pipecat_connection.event_handler("closed")
@@ -217,6 +236,19 @@ async def webrtc_offer(request: dict, background_tasks: BackgroundTasks):
 
 # Serve the custom UI
 app.mount("/ui", StaticFiles(directory="ui"), name="ui")
+
+@app.get("/ice-servers")
+async def get_ice_servers():
+    """Provide ICE servers configuration to frontend"""
+    try:
+        with open("cloudflare_credentials_cache.json", "r") as f:
+            cf_data = json.load(f)
+            ice_servers = cf_data.get("credentials", {}).get("iceServers", [])
+            return {"iceServers": ice_servers}
+    except Exception as e:
+        print(f"Failed to load Cloudflare credentials: {e}")
+        # Fallback to free STUN servers
+        return {"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]}
 
 @app.get("/", response_class=HTMLResponse)
 async def root():

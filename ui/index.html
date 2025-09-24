@@ -277,7 +277,19 @@
                 console.error("DEBUG: WebSocket error:", error);
             };
 
-            // 2. Start WebRTC connection
+            // 2. Get ICE servers configuration
+            let iceServersConfig = {};
+            try {
+                const iceResponse = await fetch('/ice-servers');
+                iceServersConfig = await iceResponse.json();
+                console.log('Loaded ICE servers:', iceServersConfig);
+            } catch (error) {
+                console.error('Failed to load ICE servers:', error);
+                // Fallback to free STUN server
+                iceServersConfig = {iceServers: [{urls: ['stun:stun.l.google.com:19302']}]};
+            }
+
+            // 3. Start WebRTC connection
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ 
                     audio: {
@@ -287,7 +299,7 @@
                     } 
                 });
 
-                peerConnection = new RTCPeerConnection();
+                peerConnection = new RTCPeerConnection(iceServersConfig);
                 stream.getTracks().forEach(track => {
                     peerConnection.addTrack(track, stream);
                 });
