@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice AI Framework</title>
+    <script src="/ui/config.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            text-align: center;
+            padding: 20px 0;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0;
+            color: #333;
+        }
+        .chat-container {
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: 60vh;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        .message {
+            margin-bottom: 15px;
+            padding: 10px 15px;
+            border-radius: 18px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .user-message {
+            background-color: #e1f5fe;
+            align-self: flex-end;
+            margin-left: auto;
+        }
+        .bot-message {
+            background-color: #f1f1f1;
+            align-self: flex-start;
+        }
+        .controls {
+            display: flex;
+            justify-content: center;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border-top: 1px solid #eee;
+        }
+        .button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 24px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin: 0 10px;
+        }
+        .button:hover {
+            background-color: #3367d6;
+        }
+        .button.recording {
+            background-color: #db4437;
+        }
+        .button.paused {
+            background-color: #f4b400;
+        }
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            font-style: italic;
+            color: #666;
+        }
+        .countdown {
+            text-align: center;
+            margin-top: 10px;
+            font-weight: bold;
+            color: #db4437;
+            display: none;
+        }
+        .visualizer {
+            height: 60px;
+            width: 100%;
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            display: none !important;
+        }
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 16px 24px;
+            border-radius: 4px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+        }
+        .toast.error {
+            background-color: #f44336;
+            color: white;
+        }
+        .toast.warning {
+            background-color: #ffd700;
+            color: black;
+        }
+        /* Configuration status panel */
+        .config-status {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 1px solid #e9ecef;
+        }
+        .config-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 80px;
+        }
+        .config-label {
+            font-weight: bold;
+            color: #6c757d;
+            margin-bottom: 2px;
+            font-size: 12px;
+            text-transform: uppercase;
+        }
+        .config-value {
+            color: #495057;
+            font-weight: 500;
+            font-size: 13px;
+        }
+        .config-value.pipeline {
+            color: #28a745;
+        }
+        .config-value.realtime {
+            color: #007bff;
+        }
+        .config-value.loading {
+            color: #6c757d;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <!-- Toast element for error notifications -->
+    <div id="error-toast" class="toast"></div>
+    
+    <div class="container">
+        <header>
+            <h1 id="app-title">Voice AI Framework</h1>
+            <p id="app-subtitle">Real-time voice conversation</p>
+            
+            <!-- Configuration Status Panel -->
+            <div class="config-status">
+                <div class="config-item">
+                    <span class="config-label">Transport:</span>
+                    <span class="config-value" id="transport-type">FastRTC</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">Provider:</span>
+                    <span class="config-value" id="provider-type">Loading...</span>
+                </div>
+                <div class="config-item">
+                    <span class="config-label">Model:</span>
+                    <span class="config-value" id="model-info">Loading...</span>
+                </div>
+            </div>
+        </header>
+        
+        <div class="visualizer" id="visualizer">
+            <!-- Audio visualizer will be rendered here -->
+        </div>
+        
+        <div class="chat-container">
+            <div class="chat-messages" id="chat-messages">
+                <!-- Messages will be added here -->
+            </div>
+            
+            <div class="controls">
+                <button id="start-button" class="button">Start Conversation</button>
+                <button id="pause-button" class="button" style="display: none;">Pause</button>
+            </div>
+        </div>
+        
+        <div class="status" id="status">Ready to chat</div>
+        <div class="countdown" id="countdown"></div>
+    </div>
+    <audio id="audio-output"></audio>
+
+    <script>
+        let peerConnection;
+        let stream;
+        let ws;
+        let isRecording = false;
+        let currentUserMessageDiv = null;
+        let currentBotMessageDiv = null;
+
+        const startButton = document.getElementById('start-button');
+        const chatMessages = document.getElementById('chat-messages');
+        const statusElement = document.getElementById('status');
+        const audioOutput = document.getElementById('audio-output');
+
+        startButton.addEventListener('click', () => {
+            if (!isRecording) {
+                startConversation();
+            } else {
+                stopConversation();
+            }
+        });
+
+        async function startConversation() {
+            statusElement.textContent = 'Connecting...';
+            console.log("DEBUG: Starting conversation");
+            startButton.disabled = true;
+
+            // 1. Start WebSocket connection
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+            
+            ws.onopen = () => {
+                console.log("DEBUG: WebSocket connection established");
+            };
+
+            ws.onmessage = (event) => {
+                const message = JSON.parse(event.data);
+                if (message.type === 'transcript') {
+                    if (message.speaker === 'user') {
+                        currentBotMessageDiv = null; // Reset bot message on new user utterance
+                        if (message.text.trim()) {
+                            addMessage('user', message.text);
+                        }
+                    } else if (message.speaker === 'bot') {
+                        if (!currentBotMessageDiv) {
+                            currentBotMessageDiv = addMessage('bot', '');
+                        }
+                        currentBotMessageDiv.textContent += message.text;
+                    }
+                }
+            };
+            
+            ws.onclose = () => {
+                console.log("DEBUG: WebSocket connection closed");
+            };
+            
+            ws.onerror = (error) => {
+                console.error("DEBUG: WebSocket error:", error);
+            };
+
+            // 2. Start WebRTC connection
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    } 
+                });
+
+                peerConnection = new RTCPeerConnection();
+                stream.getTracks().forEach(track => {
+                    peerConnection.addTrack(track, stream);
+                });
+
+                peerConnection.ontrack = (event) => {
+                    if (audioOutput.srcObject !== event.streams[0]) {
+                        audioOutput.srcObject = event.streams[0];
+                        audioOutput.play().catch(e => console.error('Audio play failed:', e));
+                    }
+                };
+
+                peerConnection.onconnectionstatechange = () => {
+                    if (peerConnection.connectionState === 'connected') {
+                        statusElement.textContent = 'Connected. Speak now...';
+                        startButton.textContent = 'Stop Conversation';
+                        startButton.classList.add('recording');
+                        isRecording = true;
+                    } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'closed') {
+                        stopConversation();
+                    }
+                    startButton.disabled = false;
+                };
+
+                const offer = await peerConnection.createOffer();
+                await peerConnection.setLocalDescription(offer);
+
+                const response = await fetch('/webrtc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sdp: peerConnection.localDescription.sdp,
+                        type: peerConnection.localDescription.type
+                    })
+                });
+
+                const answer = await response.json();
+                await peerConnection.setRemoteDescription(answer);
+
+            } catch (err) {
+                console.error('Error starting conversation:', err);
+                statusElement.textContent = `Error: ${err.message}`;
+                startButton.disabled = false;
+                stopConversation();
+            }
+        }
+
+        function stopConversation() {
+            if (peerConnection) {
+                peerConnection.close();
+                peerConnection = null;
+            }
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                stream = null;
+            }
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+            statusElement.textContent = 'Disconnected';
+            startButton.textContent = 'Start Conversation';
+            startButton.classList.remove('recording');
+            isRecording = false;
+            startButton.disabled = false;
+        }
+
+        // You'll need to implement logic to display chat messages.
+        // The pipecat runner doesn't send text messages by default,
+        // but you could add a custom frame for this if needed.
+        function addMessage(role, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(role === 'user' ? 'user-message' : 'bot-message');
+            messageDiv.textContent = content;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageDiv;
+        }
+
+    </script>
+</body>
+</html>

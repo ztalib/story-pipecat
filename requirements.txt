@@ -1,0 +1,5 @@
+pipecat-ai[webrtc,daily,silero,deepgram,openai,cartesia,runner]>=0.0.83
+python-dotenv
+websockets
+aiohttp
+fastrtc[vad,tts,stopword]==0.0.20.rc2

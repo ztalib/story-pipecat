@@ -1,0 +1,14 @@
+# Dependencies
+venv/
+
+# Build outputs
+__pycache__/
+
+# OS files
+.DS_Store
+
+# Logs
+conversations/
+
+# TEMP
+_standalone_tests/
