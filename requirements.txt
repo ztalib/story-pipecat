@@ -3,3 +3,5 @@ python-dotenv
 websockets
 aiohttp
 fastrtc[vad,tts,stopword]==0.0.20.rc2
+uvicorn[standard]
+fastapi

@@ -4,6 +4,10 @@ import logging
 from typing import Dict, List
 import json
 from datetime import datetime
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 from fastapi import FastAPI, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
