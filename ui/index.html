@@ -311,20 +311,51 @@
                     }
                 };
 
+                // Enhanced debugging for WebRTC connection
                 peerConnection.onconnectionstatechange = () => {
+                    console.log(`🔗 Connection state changed: ${peerConnection.connectionState}`);
                     if (peerConnection.connectionState === 'connected') {
+                        console.log('✅ WebRTC connection established successfully!');
                         statusElement.textContent = 'Connected. Speak now...';
                         startButton.textContent = 'Stop Conversation';
                         startButton.classList.add('recording');
                         isRecording = true;
                     } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'closed') {
+                        console.log(`❌ WebRTC connection ended: ${peerConnection.connectionState}`);
                         stopConversation();
                     }
                     startButton.disabled = false;
                 };
 
+                // ICE connection state debugging
+                peerConnection.oniceconnectionstatechange = () => {
+                    console.log(`🧊 ICE connection state: ${peerConnection.iceConnectionState}`);
+                };
+
+                // ICE gathering state debugging
+                peerConnection.onicegatheringstatechange = () => {
+                    console.log(`📡 ICE gathering state: ${peerConnection.iceGatheringState}`);
+                };
+
+                // ICE candidate debugging
+                peerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        console.log('🎯 ICE candidate found:', {
+                            type: event.candidate.type,
+                            protocol: event.candidate.protocol,
+                            address: event.candidate.address,
+                            port: event.candidate.port,
+                            priority: event.candidate.priority
+                        });
+                    } else {
+                        console.log('🏁 ICE candidate gathering complete');
+                    }
+                };
+
+                console.log('📝 Creating WebRTC offer...');
                 const offer = await peerConnection.createOffer();
                 await peerConnection.setLocalDescription(offer);
+                console.log('📤 Local description set, sending offer to server');
 
                 const response = await fetch('/webrtc', {
                     method: 'POST',
@@ -335,8 +366,14 @@
                     })
                 });
 
+                if (!response.ok) {
+                    throw new Error(`WebRTC offer failed: ${response.status}`);
+                }
+
                 const answer = await response.json();
+                console.log('📥 Received answer from server, setting remote description');
                 await peerConnection.setRemoteDescription(answer);
+                console.log('✅ Remote description set, ICE negotiation should start');
 
             } catch (err) {
                 console.error('Error starting conversation:', err);
