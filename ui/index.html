@@ -340,13 +340,8 @@
                 // ICE candidate debugging
                 peerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
-                        console.log('🎯 ICE candidate found:', {
-                            type: event.candidate.type,
-                            protocol: event.candidate.protocol,
-                            address: event.candidate.address,
-                            port: event.candidate.port,
-                            priority: event.candidate.priority
-                        });
+                        console.log(`🎯 ICE candidate: ${event.candidate.type} ${event.candidate.protocol} ${event.candidate.address}:${event.candidate.port} (priority: ${event.candidate.priority})`);
+                        console.log('   Full candidate:', event.candidate.candidate);
                     } else {
                         console.log('🏁 ICE candidate gathering complete');
                     }

@@ -200,29 +200,16 @@ async def webrtc_offer(request: dict, background_tasks: BackgroundTasks):
         os.makedirs("conversations")
     log_filename = f"conversations/convo_{date_str}.log"
 
-    # Use only STUN servers for backend (no auth needed), frontend handles TURN
-    ice_servers = []
-    try:
-        with open("cloudflare_credentials_cache.json", "r") as f:
-            cf_data = json.load(f)
-            cf_ice_servers = cf_data.get("credentials", {}).get("iceServers", [])
-            
-            # Only use STUN servers for backend (no credentials needed)
-            for server in cf_ice_servers:
-                if "urls" in server:
-                    for url in server["urls"]:
-                        if url.startswith("stun:"):
-                            ice_servers.append(url)
-            
-            # Add fallback STUN servers
-            if not ice_servers:
-                ice_servers = ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]
-            
-            print(f"Backend using {len(ice_servers)} STUN servers (frontend handles TURN)")
-    except Exception as e:
-        print(f"Failed to load Cloudflare credentials: {e}")
-        # Fallback to free STUN servers
-        ice_servers = ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]
+    # Use multiple STUN servers for better NAT traversal
+    ice_servers = [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302", 
+        "stun:stun2.l.google.com:19302",
+        "stun:stun.cloudflare.com:3478",
+        "stun:stun.cloudflare.com:53"
+    ]
+    
+    print(f"Backend using {len(ice_servers)} STUN servers for NAT traversal")
 
     pipecat_connection = SmallWebRTCConnection(ice_servers=ice_servers)
     await pipecat_connection.initialize(sdp=request["sdp"], type=request["type"])
