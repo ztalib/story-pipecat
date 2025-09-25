@@ -3,415 +3,229 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice AI Framework</title>
-    <script src="/ui/config.js"></script>
+    <title>Voice AI - Daily</title>
+    <script crossorigin src="https://unpkg.com/@daily-co/daily-js"></script>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             margin: 0;
-            padding: 0;
-            background-color: #f5f5f5;
-            color: #333;
+            padding: 20px;
+            background: #f5f5f5;
         }
         .container {
-            max-width: 800px;
+            max-width: 600px;
             margin: 0 auto;
-            padding: 20px;
-        }
-        header {
-            text-align: center;
-            padding: 20px 0;
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            margin-bottom: 20px;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         h1 {
-            margin: 0;
+            text-align: center;
             color: #333;
-        }
-        .chat-container {
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            height: 60vh;
-            display: flex;
-            flex-direction: column;
-        }
-        .chat-messages {
-            flex: 1;
-            overflow-y: auto;
-            padding: 20px;
-        }
-        .message {
-            margin-bottom: 15px;
-            padding: 10px 15px;
-            border-radius: 18px;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        .user-message {
-            background-color: #e1f5fe;
-            align-self: flex-end;
-            margin-left: auto;
-        }
-        .bot-message {
-            background-color: #f1f1f1;
-            align-self: flex-start;
-        }
-        .controls {
-            display: flex;
-            justify-content: center;
-            padding: 20px;
-            background-color: #f9f9f9;
-            border-top: 1px solid #eee;
-        }
-        .button {
-            background-color: #4285f4;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            font-size: 16px;
-            border-radius: 24px;
-            cursor: pointer;
-            transition: background-color 0.3s;
-            margin: 0 10px;
-        }
-        .button:hover {
-            background-color: #3367d6;
-        }
-        .button.recording {
-            background-color: #db4437;
-        }
-        .button.paused {
-            background-color: #f4b400;
+            margin-bottom: 30px;
         }
         .status {
             text-align: center;
-            margin-top: 20px;
-            font-style: italic;
-            color: #666;
-        }
-        .countdown {
-            text-align: center;
-            margin-top: 10px;
-            font-weight: bold;
-            color: #db4437;
-            display: none;
-        }
-        .visualizer {
-            height: 60px;
-            width: 100%;
-            background-color: #f1f1f1;
+            padding: 15px;
+            margin: 20px 0;
             border-radius: 8px;
-            margin-bottom: 20px;
-            overflow: hidden;
-            display: none !important;
-        }
-        /* Toast notifications */
-        .toast {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 16px 24px;
-            border-radius: 4px;
-            font-size: 14px;
-            z-index: 1000;
-            display: none;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
-        }
-        .toast.error {
-            background-color: #f44336;
-            color: white;
-        }
-        .toast.warning {
-            background-color: #ffd700;
-            color: black;
-        }
-        /* Configuration status panel */
-        .config-status {
-            display: flex;
-            justify-content: center;
-            gap: 20px;
-            margin-top: 15px;
-            padding: 10px;
-            background-color: #f8f9fa;
-            border-radius: 6px;
-            font-size: 14px;
-            border: 1px solid #e9ecef;
-        }
-        .config-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-width: 80px;
-        }
-        .config-label {
-            font-weight: bold;
-            color: #6c757d;
-            margin-bottom: 2px;
-            font-size: 12px;
-            text-transform: uppercase;
-        }
-        .config-value {
-            color: #495057;
             font-weight: 500;
-            font-size: 13px;
         }
-        .config-value.pipeline {
-            color: #28a745;
+        .status.ready { background: #e8f5e8; color: #2d5a2d; }
+        .status.connecting { background: #fff3cd; color: #856404; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.error { background: #f8d7da; color: #721c24; }
+        
+        .controls {
+            text-align: center;
+            margin: 30px 0;
         }
-        .config-value.realtime {
-            color: #007bff;
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 0 10px;
         }
-        .config-value.loading {
-            color: #6c757d;
-            font-style: italic;
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.danger { background: #dc3545; }
+        button.danger:hover { background: #c82333; }
+        
+        .chat {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            background: #fafafa;
         }
+        .message {
+            margin: 10px 0;
+            padding: 8px 12px;
+            border-radius: 6px;
+        }
+        .user { background: #007bff; color: white; text-align: right; }
+        .bot { background: #e9ecef; color: #333; }
     </style>
 </head>
 <body>
-    <!-- Toast element for error notifications -->
-    <div id="error-toast" class="toast"></div>
-    
     <div class="container">
-        <header>
-            <h1 id="app-title">Voice AI Framework</h1>
-            <p id="app-subtitle">Real-time voice conversation</p>
-            
-            <!-- Configuration Status Panel -->
-            <div class="config-status">
-                <div class="config-item">
-                    <span class="config-label">Transport:</span>
-                    <span class="config-value" id="transport-type">FastRTC</span>
-                </div>
-                <div class="config-item">
-                    <span class="config-label">Provider:</span>
-                    <span class="config-value" id="provider-type">Loading...</span>
-                </div>
-                <div class="config-item">
-                    <span class="config-label">Model:</span>
-                    <span class="config-value" id="model-info">Loading...</span>
-                </div>
-            </div>
-        </header>
+        <h1>🎤 Voice AI Assistant</h1>
         
-        <div class="visualizer" id="visualizer">
-            <!-- Audio visualizer will be rendered here -->
+        <div id="status" class="status ready">Ready to start conversation</div>
+        
+        <div class="controls">
+            <button id="startBtn">Start Conversation</button>
+            <button id="stopBtn" style="display:none;" class="danger">Stop</button>
         </div>
         
-        <div class="chat-container">
-            <div class="chat-messages" id="chat-messages">
-                <!-- Messages will be added here -->
-            </div>
-            
-            <div class="controls">
-                <button id="start-button" class="button">Start Conversation</button>
-                <button id="pause-button" class="button" style="display: none;">Pause</button>
-            </div>
+        <div id="chat" class="chat">
+            <div class="message bot">Click "Start Conversation" to begin talking with the AI assistant.</div>
         </div>
-        
-        <div class="status" id="status">Ready to chat</div>
-        <div class="countdown" id="countdown"></div>
     </div>
-    <audio id="audio-output"></audio>
 
     <script>
-        let peerConnection;
-        let stream;
-        let ws;
-        let isRecording = false;
-        let currentUserMessageDiv = null;
-        let currentBotMessageDiv = null;
+        let callObject = null;
+        let ws = null;
+        let isConnected = false;
+        let currentBotMessage = null;
 
-        const startButton = document.getElementById('start-button');
-        const chatMessages = document.getElementById('chat-messages');
-        const statusElement = document.getElementById('status');
-        const audioOutput = document.getElementById('audio-output');
+        const statusEl = document.getElementById('status');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const chatEl = document.getElementById('chat');
 
-        startButton.addEventListener('click', () => {
-            if (!isRecording) {
-                startConversation();
-            } else {
-                stopConversation();
-            }
-        });
+        // Set status
+        function setStatus(message, type = 'ready') {
+            statusEl.textContent = message;
+            statusEl.className = `status ${type}`;
+        }
 
-        async function startConversation() {
-            statusElement.textContent = 'Connecting...';
-            console.log("DEBUG: Starting conversation");
-            startButton.disabled = true;
-
-            // 1. Start WebSocket connection
-            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-            
-            ws.onopen = () => {
-                console.log("DEBUG: WebSocket connection established");
-            };
-
-            ws.onmessage = (event) => {
-                const message = JSON.parse(event.data);
-                if (message.type === 'transcript') {
-                    if (message.speaker === 'user') {
-                        currentBotMessageDiv = null; // Reset bot message on new user utterance
-                        if (message.text.trim()) {
-                            addMessage('user', message.text);
-                        }
-                    } else if (message.speaker === 'bot') {
-                        if (!currentBotMessageDiv) {
-                            currentBotMessageDiv = addMessage('bot', '');
-                        }
-                        currentBotMessageDiv.textContent += message.text;
-                    }
+        // Add message to chat
+        function addMessage(text, type = 'bot') {
+            if (type === 'user') {
+                // User messages are complete, add new message
+                currentBotMessage = null; // Reset bot message accumulation
+                const div = document.createElement('div');
+                div.className = `message ${type}`;
+                div.textContent = text;
+                chatEl.appendChild(div);
+            } else if (type === 'bot') {
+                // Bot messages accumulate in the same div
+                if (!currentBotMessage) {
+                    currentBotMessage = document.createElement('div');
+                    currentBotMessage.className = `message ${type}`;
+                    currentBotMessage.textContent = text;
+                    chatEl.appendChild(currentBotMessage);
+                } else {
+                    currentBotMessage.textContent += text;
                 }
-            };
-            
-            ws.onclose = () => {
-                console.log("DEBUG: WebSocket connection closed");
-            };
-            
-            ws.onerror = (error) => {
-                console.error("DEBUG: WebSocket error:", error);
-            };
-
-            // 2. Get ICE servers configuration
-            let iceServersConfig = {};
-            try {
-                const iceResponse = await fetch('/ice-servers');
-                iceServersConfig = await iceResponse.json();
-                console.log('Loaded ICE servers:', iceServersConfig);
-            } catch (error) {
-                console.error('Failed to load ICE servers:', error);
-                // Fallback to free STUN server
-                iceServersConfig = {iceServers: [{urls: ['stun:stun.l.google.com:19302']}]};
             }
+            chatEl.scrollTop = chatEl.scrollHeight;
+        }
 
-            // 3. Start WebRTC connection
+        // Start conversation
+        async function startConversation() {
             try {
-                stream = await navigator.mediaDevices.getUserMedia({ 
-                    audio: {
-                        echoCancellation: true,
-                        noiseSuppression: true,
-                        autoGainControl: true
-                    } 
-                });
+                setStatus('Creating room...', 'connecting');
+                startBtn.disabled = true;
 
-                peerConnection = new RTCPeerConnection(iceServersConfig);
-                stream.getTracks().forEach(track => {
-                    peerConnection.addTrack(track, stream);
-                });
+                // Create room via backend
+                const roomResp = await fetch('/create-room', { method: 'POST' });
+                const room = await roomResp.json();
+                
+                if (room.error) {
+                    throw new Error(room.error);
+                }
 
-                peerConnection.ontrack = (event) => {
-                    if (audioOutput.srcObject !== event.streams[0]) {
-                        audioOutput.srcObject = event.streams[0];
-                        audioOutput.play().catch(e => console.error('Audio play failed:', e));
-                    }
-                };
-
-                // Enhanced debugging for WebRTC connection
-                peerConnection.onconnectionstatechange = () => {
-                    console.log(`🔗 Connection state changed: ${peerConnection.connectionState}`);
-                    if (peerConnection.connectionState === 'connected') {
-                        console.log('✅ WebRTC connection established successfully!');
-                        statusElement.textContent = 'Connected. Speak now...';
-                        startButton.textContent = 'Stop Conversation';
-                        startButton.classList.add('recording');
-                        isRecording = true;
-                    } else if (peerConnection.connectionState === 'disconnected' || peerConnection.connectionState === 'failed' || peerConnection.connectionState === 'closed') {
-                        console.log(`❌ WebRTC connection ended: ${peerConnection.connectionState}`);
-                        stopConversation();
-                    }
-                    startButton.disabled = false;
-                };
-
-                // ICE connection state debugging
-                peerConnection.oniceconnectionstatechange = () => {
-                    console.log(`🧊 ICE connection state: ${peerConnection.iceConnectionState}`);
-                };
-
-                // ICE gathering state debugging
-                peerConnection.onicegatheringstatechange = () => {
-                    console.log(`📡 ICE gathering state: ${peerConnection.iceGatheringState}`);
-                };
-
-                // ICE candidate debugging
-                peerConnection.onicecandidate = (event) => {
-                    if (event.candidate) {
-                        console.log(`🎯 ICE candidate: ${event.candidate.type} ${event.candidate.protocol} ${event.candidate.address}:${event.candidate.port} (priority: ${event.candidate.priority})`);
-                        console.log('   Full candidate:', event.candidate.candidate);
-                    } else {
-                        console.log('🏁 ICE candidate gathering complete');
-                    }
-                };
-
-                console.log('📝 Creating WebRTC offer...');
-                const offer = await peerConnection.createOffer();
-                await peerConnection.setLocalDescription(offer);
-                console.log('📤 Local description set, sending offer to server');
-
-                const response = await fetch('/webrtc', {
+                // Start bot
+                await fetch('/start-bot', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        sdp: peerConnection.localDescription.sdp,
-                        type: peerConnection.localDescription.type
-                    })
+                    body: JSON.stringify({ room_url: room.url, token: null })
                 });
 
-                if (!response.ok) {
-                    throw new Error(`WebRTC offer failed: ${response.status}`);
-                }
+                // Connect WebSocket for transcripts
+                const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+                ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+                
+                ws.onmessage = (event) => {
+                    const msg = JSON.parse(event.data);
+                    if (msg.type === 'transcript') {
+                        addMessage(msg.text, msg.speaker);
+                    }
+                };
 
-                const answer = await response.json();
-                console.log('📥 Received answer from server, setting remote description');
-                await peerConnection.setRemoteDescription(answer);
-                console.log('✅ Remote description set, ICE negotiation should start');
+                // Join Daily room
+                callObject = DailyIframe.createCallObject();
+                
+                callObject.on('joined-meeting', () => {
+                    setStatus('Connected! Speak to the AI assistant.', 'connected');
+                    startBtn.style.display = 'none';
+                    stopBtn.style.display = 'inline-block';
+                    isConnected = true;
+                });
 
-            } catch (err) {
-                console.error('Error starting conversation:', err);
-                statusElement.textContent = `Error: ${err.message}`;
-                startButton.disabled = false;
-                stopConversation();
+                callObject.on('left-meeting', () => {
+                    setStatus('Conversation ended', 'ready');
+                    startBtn.style.display = 'inline-block';
+                    stopBtn.style.display = 'none';
+                    startBtn.disabled = false;
+                    isConnected = false;
+                });
+
+                callObject.on('error', (error) => {
+                    setStatus(`Error: ${error.errorMsg}`, 'error');
+                    startBtn.disabled = false;
+                });
+
+                // Handle audio tracks (for bot audio)
+                callObject.on('track-started', (event) => {
+                    if (event.participant && event.track.kind === 'audio' && !event.participant.local) {
+                        console.log('🔊 Bot audio track started');
+                        const audioElement = document.createElement('audio');
+                        audioElement.srcObject = new MediaStream([event.track]);
+                        audioElement.autoplay = true;
+                        audioElement.style.display = 'none';
+                        document.body.appendChild(audioElement);
+                        
+                        audioElement.play().catch(e => {
+                            console.log('Audio play failed, will retry on user interaction:', e);
+                        });
+                    }
+                });
+
+                // Join the room
+                await callObject.join({ url: room.url });
+
+            } catch (error) {
+                setStatus(`Error: ${error.message}`, 'error');
+                startBtn.disabled = false;
             }
         }
 
-        function stopConversation() {
-            if (peerConnection) {
-                peerConnection.close();
-                peerConnection = null;
-            }
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-                stream = null;
+        // Stop conversation
+        async function stopConversation() {
+            if (callObject) {
+                await callObject.leave();
+                callObject.destroy();
+                callObject = null;
             }
             if (ws) {
                 ws.close();
                 ws = null;
             }
-            statusElement.textContent = 'Disconnected';
-            startButton.textContent = 'Start Conversation';
-            startButton.classList.remove('recording');
-            isRecording = false;
-            startButton.disabled = false;
         }
 
-        // You'll need to implement logic to display chat messages.
-        // The pipecat runner doesn't send text messages by default,
-        // but you could add a custom frame for this if needed.
-        function addMessage(role, content) {
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message');
-            messageDiv.classList.add(role === 'user' ? 'user-message' : 'bot-message');
-            messageDiv.textContent = content;
-            
-            chatMessages.appendChild(messageDiv);
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-            return messageDiv;
-        }
-
+        // Event listeners
+        startBtn.addEventListener('click', startConversation);
+        stopBtn.addEventListener('click', stopConversation);
     </script>
 </body>
 </html>

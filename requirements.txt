@@ -3,4 +3,5 @@ uvicorn[standard]
 python-dotenv
 websockets
 aiohttp
-pipecat-ai[webrtc,daily,silero,deepgram,openai,cartesia,runner]>=0.0.83
+pipecat-ai[daily,silero,openai]>=0.0.83
+pydub
