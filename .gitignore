@@ -12,3 +12,7 @@ conversations/
 
 # TEMP
 _standalone_tests/
+
+.dockerignore
+.mypy_cache/
+.ruff_cache/

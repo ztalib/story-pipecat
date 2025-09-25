@@ -1,0 +1,5 @@
+# Application Settings
+
+llm:
+  model: "gpt-4o"
+  temperature: 0.7

@@ -1,21 +1,16 @@
-import asyncio
 import os
 import logging
-from typing import Dict, List
+from typing import List
 import json
 from datetime import datetime
 from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 from fastapi import FastAPI, BackgroundTasks, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 
-from pipecat.runner.types import RunnerArguments, DailyRunnerArguments
 from pipecat.audio.vad.silero import SileroVADAnalyzer
-from pipecat.frames.frames import LLMFullResponseEndFrame, LLMRunFrame, TranscriptionFrame, TextFrame, DataFrame
+from pipecat.frames.frames import LLMFullResponseEndFrame, TranscriptionFrame, TextFrame
 from pipecat.pipeline.pipeline import Pipeline
 from pipecat.pipeline.runner import PipelineRunner
 from pipecat.pipeline.task import PipelineParams, PipelineTask
@@ -25,10 +20,12 @@ from pipecat.services.openai.llm import OpenAILLMService
 from pipecat.services.openai.stt import OpenAISTTService
 from pipecat.services.openai.tts import OpenAITTSService
 from pipecat.transports.daily.transport import DailyTransport, DailyParams
+from pipecat.adapters.schemas.tools_schema import ToolsSchema
 
+from config.config import config
+from handlers.story_handlers import StoryCaptureHandler, StoryFlowHandler, ConversationMemory, BaseHandler
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("pipecat")
+load_dotenv()
 
 # -----------------
 # WebSocket Connection Manager
@@ -52,36 +49,22 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 # -----------------
-# Custom Frame Processor
+# Custom Frame Processor for UI Updates
 # -----------------
 
-# Was Working - don't Delete - for reference
-# class SendTranscriptionToClient(FrameProcessor):
-#     def __init__(self, speaker: str):
-#         super().__init__()
-#         self._speaker = speaker
-
-#     async def process_frame(self, frame, direction):
-#         await super().process_frame(frame, direction)
-#         if isinstance(frame, (TranscriptionFrame, TextFrame)):
-#             print(f"{self._speaker} SAID: {frame.text}")
-#         await self.push_frame(frame, direction)  # Keep this - it's needed!
-
-
 class SendTranscriptionToClient(FrameProcessor):
+    """A simple class to send transcriptions to the client."""
     def __init__(self, speaker: str, log_filename: str):
         super().__init__()
         self._speaker = speaker
         self._log_filename = log_filename
-        self._buffer = []
+        self._buffer: List[str] = []
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
         if isinstance(frame, (TranscriptionFrame, TextFrame)):
-            # print(f"{self._speaker} SAID: {frame.text}")
             text = frame.text
             if text.strip():
-                # 1. Log to console for debugging / 2. Store to file
                 if self._speaker == "USER" and isinstance(frame, TranscriptionFrame):       
                     print(f"{self._speaker} SAID: {text}")
                     with open(self._log_filename, "a") as f:
@@ -90,7 +73,6 @@ class SendTranscriptionToClient(FrameProcessor):
                 elif self._speaker == "BOT" and isinstance(frame, TextFrame):
                     self._buffer.append(frame.text)
 
-                # 3. Broadcast to UI
                 message = {
                     "type": "transcript",
                     "speaker": self._speaker.lower(),
@@ -106,27 +88,55 @@ class SendTranscriptionToClient(FrameProcessor):
                     f.flush()
             self._buffer = []
         
-        await self.push_frame(frame, direction)  
+        await self.push_frame(frame, direction)
 
 # -----------------
-# Bot logic
+# Bot Design: Tools, Handlers, and Pipeline
 # -----------------
 
-async def run_bot(transport, log_filename: str):
+# --- Main Bot Logic ---
+
+async def run_bot(transport, convo_dir: str):
+    log_filename = os.path.join(convo_dir, "transcript.log")
+    data_filepath = os.path.join(convo_dir, "extracted_data.json")
+
+    # 1. Create a single, shared memory object for this conversation
+    memory = ConversationMemory()
+
+    # 2. Create instances of our handlers, passing in the SAME memory object
+    capture_handler = StoryCaptureHandler(data_filepath=data_filepath, memory=memory)
+    flow_handler = StoryFlowHandler(data_filepath=data_filepath, memory=memory)
+    all_handlers: List[BaseHandler] = [capture_handler, flow_handler]
+
+    # 3. Create the ToolsSchema by getting the schema from each handler class
+    tools = ToolsSchema(
+        standard_tools=[handler.get_schema() for handler in all_handlers]
+    )
+
+    # 4. Create the LLM context, configured with a system prompt and our tools
+    context = OpenAILLMContext(
+        messages=[{"role": "system", "content": config.system_prompt}], 
+        tools=tools
+    )
+
+    # 5. Create the LLM Service
+    llm = OpenAILLMService(
+        api_key=os.getenv("OPENAI_API_KEY"), 
+        model=config.llm_model
+    )
+
+    # 6. Register the handler methods by name
+    for handler in all_handlers:
+        llm.register_function(handler.NAME, handler.handle_request)
+
+    # 7. Create other services and the context aggregator
     stt = OpenAISTTService(api_key=os.getenv("OPENAI_API_KEY"))
     tts = OpenAITTSService(api_key=os.getenv("OPENAI_API_KEY"))
-    llm = OpenAILLMService(api_key=os.getenv("OPENAI_API_KEY"))
-    messages = [
-        {
-            "role": "system",
-            "content": "You are a friendly AI assistant. Respond naturally and keep your answers conversational.",
-        },
-    ]
-    context = OpenAILLMContext(messages)
     context_aggregator = llm.create_context_aggregator(context)
     send_user_transcripts = SendTranscriptionToClient(speaker="USER", log_filename=log_filename)
     send_bot_transcripts = SendTranscriptionToClient(speaker="BOT", log_filename=log_filename)
 
+    # 8. Assemble the final pipeline
     pipeline = Pipeline([
         transport.input(),
         stt,
@@ -149,42 +159,26 @@ async def run_bot(transport, log_filename: str):
 
     @transport.event_handler("on_participant_joined")
     async def on_participant_joined(transport, participant):
-        messages.append({"role": "system", "content": "Say hello and briefly introduce yourself."})
-        await task.queue_frames([LLMRunFrame()])
+        pass # The bot will wait for the user to speak first.
 
     @transport.event_handler("on_participant_left")
     async def on_participant_left(transport, participant, reason):
+        # The memory object is now managed by the ConversationMemory class instance
+        # and will be garbage collected automatically.
+        # We still need to cancel the task to gracefully shut down the pipeline.
         await task.cancel()
 
     runner = PipelineRunner()
     await runner.run(task)
 
-async def bot(runner_args: RunnerArguments, log_filename: str):
-    if isinstance(runner_args, DailyRunnerArguments):
-        transport = DailyTransport(
-            room_url=runner_args.room_url,
-            token=runner_args.token,
-            bot_name="Voice AI Bot",
-            params=DailyParams(
-                audio_in_enabled=True,
-                audio_out_enabled=True,
-                audio_in_sample_rate=16000,   # Silero VAD requires 16kHz or 8kHz
-                audio_out_sample_rate=16000,  # Keep consistent
-                microphone_out_enabled=True,  # Bot can speak
-                camera_out_enabled=False,     # Disable video
-                vad_analyzer=SileroVADAnalyzer(),
-                audio_in_user_tracks=False,
-                api_key=os.getenv("DAILY_API_KEY"),  # Pass API key to DailyParams
-            ),
-        )
-        await run_bot(transport, log_filename)
-
-
 # -----------------
 # FastAPI server
 # -----------------
 
+# --- FastAPI App ---
 app = FastAPI()
+app.mount("/ui", StaticFiles(directory="ui"), name="ui")
+
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -204,20 +198,27 @@ async def start_bot(request: dict, background_tasks: BackgroundTasks):
     if not room_url:
         return {"error": "room_url is required"}
     
-    # Create a unique filename for this conversation
+    # Create a unique directory for this conversation
     now = datetime.now()
     date_str = now.strftime("%Y%m%d_%H%M")
-    if not os.path.exists("conversations"):
-        os.makedirs("conversations")
-    log_filename = f"conversations/convo_{date_str}.log"
+    convo_dir = f"conversations/{date_str}"
+    if not os.path.exists(convo_dir):
+        os.makedirs(convo_dir)
 
-    runner_args = DailyRunnerArguments(room_url=room_url, token=token)
-    background_tasks.add_task(bot, runner_args, log_filename=log_filename)
+    transport = DailyTransport(
+        room_url=room_url,
+        token=token,
+        bot_name="Voice AI Bot",
+        params=DailyParams(
+            audio_in_enabled=True,
+            audio_out_enabled=True,
+            vad_analyzer=SileroVADAnalyzer(),
+        ),
+    )
+
+    background_tasks.add_task(run_bot, transport, convo_dir=convo_dir)
     
     return {"status": "Bot started", "room_url": room_url}
-
-# Serve the custom UI
-app.mount("/ui", StaticFiles(directory="ui"), name="ui")
 
 
 @app.post("/create-room")
@@ -226,7 +227,6 @@ async def create_daily_room():
     import aiohttp
     
     daily_api_key = os.getenv("DAILY_API_KEY")
-    print(f"DEBUG: DAILY_API_KEY = {daily_api_key[:10] + '...' if daily_api_key else 'None'}")
     if not daily_api_key:
         return {"error": "DAILY_API_KEY not configured"}
     
@@ -240,26 +240,21 @@ async def create_daily_room():
                 },
                 json={
                     "properties": {
-                        "exp": int(datetime.now().timestamp()) + 30 * 60,  # 30 minutes
+                        "exp": int(datetime.now().timestamp()) + 30 * 60,
                         "enable_chat": False,
                         "enable_screenshare": False,
-                        "start_audio_off": False,  # Ensure audio is enabled by default
-                        "start_video_off": True,   # Disable video by default
-                        "owner_only_broadcast": False,  # Allow bot to broadcast audio
+                        "start_audio_off": False,
+                        "start_video_off": True,
+                        "owner_only_broadcast": False,
                     }
                 }
             ) as resp:
-                print(f"Daily API response status: {resp.status}")
-                response_text = await resp.text()
-                print(f"Daily API response: {response_text}")
-                
                 if resp.status in [200, 201]:
-                    room_data = json.loads(response_text)
-                    return room_data  # Return the full Daily response
+                    return await resp.json()
                 else:
+                    response_text = await resp.text()
                     return {"error": f"Failed to create room: {response_text}"}
     except Exception as e:
-        print(f"Exception in create_daily_room: {e}")
         return {"error": f"Exception creating room: {str(e)}"}
 
 @app.get("/", response_class=HTMLResponse)
