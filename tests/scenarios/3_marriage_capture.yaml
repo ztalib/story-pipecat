@@ -1,0 +1,13 @@
+scenario_name: "User mentions their spouse/marriage"
+conversation:
+  - user: "My wife Sarah and I got married in 1995."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - name: "Sarah"
+            relationship: "wife"
+        key_events:
+          - event_name: "Sarah and I got married"
+            participants: ["Sarah"]
+        setting:
+          - time_period: "1995"

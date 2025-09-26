@@ -1,0 +1,13 @@
+scenario_name: "User mentions neighbors"
+conversation:
+  - user: "Our neighbor Mrs. Johnson used to bring us fresh cookies every Sunday."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - name: "Mrs. Johnson"
+            relationship: "neighbor"
+        key_events:
+          - event_name: "brings fresh cookies"
+            participants: ["Mrs. Johnson"]
+        setting:
+          - time_period: "Sunday"

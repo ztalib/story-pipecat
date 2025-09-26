@@ -1,0 +1,18 @@
+scenario_name: "Complex family relationships in one story"
+conversation:
+  - user: "At my cousin Maria's quinceañera, my uncle Roberto played guitar while my aunt Carmen sang, and my grandmother Elena cried tears of joy."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - name: "Maria"
+            relationship: "cousin"
+          - name: "Roberto"
+            relationship: "uncle"
+          - name: "Carmen"
+            relationship: "aunt"
+          - name: "Elena"
+            relationship: "grandmother"
+        key_events:
+          - event_name: "quinceañera"
+            participants: ["Maria", "Roberto", "Carmen", "Elena"]
+        emotions: ["joy"]

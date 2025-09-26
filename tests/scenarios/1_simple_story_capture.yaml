@@ -1,0 +1,9 @@
+scenario_name: "User shares a simple memory about their mother"
+conversation:
+  - user: "My mother Maria was an amazing cook."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - name: "Maria"
+            relationship: "mother"
+            description: "amazing cook"

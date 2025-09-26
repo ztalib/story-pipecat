@@ -1,0 +1,18 @@
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+# A sensible default set of rules
+select = ["E", "F", "W", "I", "UP"]
+exclude = ["_standalone_tests/**/*"]
+ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::pytest.PytestCollectionWarning",
+    "ignore::RuntimeWarning",
+]

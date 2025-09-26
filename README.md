@@ -22,6 +22,7 @@ User → WebRTC (Audio) → Pipecat Pipeline → WebSocket (Transcripts) → UI
 # Set up environment
 source myenv/bin/activate
 pip install -r requirements.txt
+ruff check . --fix 
 
 # Set your OpenAI API key
 export OPENAI_API_KEY="your-key"

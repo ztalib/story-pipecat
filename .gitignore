@@ -3,16 +3,16 @@ venv/
 
 # Build outputs
 __pycache__/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
 
 # OS files
 .DS_Store
-
-# Logs
-conversations/
-
-# TEMP
-_standalone_tests/
-
-.dockerignore
-.mypy_cache/
-.ruff_cache/
+*.log
+*.json
+*.sqlite
+/venv/
+/__pycache__/
+/conversations/
+/test_runs/

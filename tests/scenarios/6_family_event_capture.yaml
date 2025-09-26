@@ -1,0 +1,13 @@
+scenario_name: "User mentions a significant family event"
+conversation:
+  - user: "When my grandfather passed away in 2010, the whole family gathered at his house in Boston."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - relationship: "grandfather"
+        key_events:
+          - event_name: "grandfather's passing"
+            participants: ["family"]
+        setting:
+          - location: "Boston"
+            time_period: "2010"

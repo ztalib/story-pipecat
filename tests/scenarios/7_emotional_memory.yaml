@@ -1,0 +1,11 @@
+scenario_name: "User shares an emotional childhood memory"
+conversation:
+  - user: "I remember feeling so proud when my dad taught me to drive his old pickup truck."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - relationship: "father"
+        key_events:
+          - event_name: "father taught user to drive his old pickup truck"
+            participants: ["father", "user"]
+        emotions: ["pride"]

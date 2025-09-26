@@ -1,0 +1,7 @@
+scenario_name: "User mentions a specific city/location"
+conversation:
+  - user: "I grew up in Chicago, near the lake."
+    expect_in_response_state:
+      extracted_elements:
+        setting:
+          - location: "Chicago, near the lake"

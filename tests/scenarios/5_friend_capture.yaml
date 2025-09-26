@@ -1,0 +1,14 @@
+scenario_name: "User mentions childhood friends"
+conversation:
+  - user: "My best friend Tommy and I used to ride bikes to the old creek every summer."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - name: "Tommy"
+            relationship: "best friend"
+        key_events:
+          - event_name: "riding bikes to the creek"
+            participants: ["Tommy", "I"]
+        setting:
+          - location: "old creek"
+            time_period: "every summer"

@@ -1,0 +1,33 @@
+scenario_name: "Multi-turn conversation about neighborhood and community"
+conversation:
+  - user: "I lived on Maple Street for most of my childhood."
+    expect_in_response_state:
+      extracted_elements:
+        setting:
+          location: "Maple Street"
+          
+  - user: "Our neighbor Mr. Peterson had this huge vegetable garden that all the kids loved."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - name: "Mr. Peterson"
+            relationship: "neighbor"
+            description: "had huge vegetable garden"
+        setting:
+          location: "Maple Street"
+          
+  - user: "Every summer he'd let us help him harvest tomatoes and we'd have this big block party."
+    expect_in_response_state:
+      extracted_elements:
+        people:
+          - name: "Mr. Peterson"
+            relationship: "neighbor"
+            description: "had huge vegetable garden"
+        key_events:
+          - event_name: "harvesting tomatoes"
+            participants: ["Mr. Peterson", "kids"]
+          - event_name: "block party"
+            participants: ["neighborhood"]
+        setting:
+          location: "Maple Street"
+          time_period: "summer"
