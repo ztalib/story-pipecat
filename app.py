@@ -102,17 +102,23 @@ class SendTranscriptionToClient(FrameProcessor):
 
     async def process_frame(self, frame, direction):
         await super().process_frame(frame, direction)
-        if isinstance(frame, (TranscriptionFrame, TextFrame)):
+        
+        # USER processor only handles TranscriptionFrames (user speech)
+        if self._speaker == "USER" and isinstance(frame, TranscriptionFrame):
             text = frame.text
             if text.strip():
-                if self._speaker == "USER" and isinstance(frame, TranscriptionFrame):
-                    print(f"{self._speaker} SAID: {text}")
-                    with open(self._log_filename, "a") as f:
-                        f.write(f"{self._speaker}: {text}\n")
-                        f.flush()
-                elif self._speaker == "BOT" and isinstance(frame, TextFrame):
-                    self._buffer.append(frame.text)
-
+                print(f"{self._speaker} SAID: {text}")
+                with open(self._log_filename, "a") as f:
+                    f.write(f"{self._speaker}: {text}\n")
+                    f.flush()
+                message = {"type": "transcript", "speaker": self._speaker.lower(), "text": text}
+                await manager.broadcast(json.dumps(message))
+        
+        # BOT processor only handles TextFrames (bot responses)
+        elif self._speaker == "BOT" and isinstance(frame, TextFrame):
+            text = frame.text
+            if text.strip():
+                self._buffer.append(frame.text)
                 message = {"type": "transcript", "speaker": self._speaker.lower(), "text": text}
                 await manager.broadcast(json.dumps(message))
         elif isinstance(frame, LLMFullResponseEndFrame):
@@ -209,7 +215,9 @@ async def run_bot(transport, convo_dir: str):
 
     @transport.event_handler("on_participant_joined")
     async def on_participant_joined(transport, participant):
-        pass  # The bot will wait for the user to speak first.
+        # Have Clio greet the user first with a welcome message
+        welcome_message = "Hi, I'm Clio, what story would you like to share today?"
+        await task.queue_frame(TextFrame(welcome_message))
 
     @transport.event_handler("on_participant_left")
     async def on_participant_left(transport, participant, reason):
