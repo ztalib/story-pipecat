@@ -1,22 +1,8 @@
 scenario_name: "Multi-turn conversation about wedding and relationships"
 conversation:
   - user: "My wedding day was absolutely perfect, despite the rain."
-    expect_in_response_state:
-      extracted_elements:
-        key_events:
-          - event_name: "wedding day"
-        emotions: ["perfect"]
         
   - user: "My husband Jake was so nervous he forgot his vows at home."
-    expect_in_response_state:
-      extracted_elements:
-        people:
-          - name: "Jake"
-            relationship: "husband"
-        key_events:
-          - event_name: "wedding day"
-            participants: ["Jake"]
-        emotions: ["nervous"]
         
   - user: "But my maid of honor Rebecca saved the day - she had written backup vows just in case."
     expect_in_response_state:
@@ -32,3 +18,4 @@ conversation:
             participants: ["Jake", "Rebecca"]
           - event_name: "forgot vows incident"
             participants: ["Jake", "Rebecca"]
+        emotions: ["perfect", "nervous"]

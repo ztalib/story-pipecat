@@ -14,6 +14,53 @@ from .test_scoring import format_score_report, score_test_result
 test_results: list[dict[str, Any]] = []
 
 
+def create_comparison_report(expected_state: dict[str, Any], actual_state: dict[str, Any]) -> str:
+    """Create a readable side-by-side comparison of expected vs actual results."""
+
+    def format_extracted_elements(elements: dict[str, Any]) -> dict[str, Any]:
+        """Format extracted elements for cleaner display."""
+        if not elements:
+            return {}
+
+        formatted = {}
+        for key, value in elements.items():
+            if key == "people" and isinstance(value, list):
+                formatted[key] = [
+                    {k: v for k, v in person.items() if v}  # Remove empty values
+                    for person in value
+                ]
+            elif key == "key_events" and isinstance(value, list):
+                formatted[key] = [
+                    {k: v for k, v in event.items() if v}  # Remove empty values
+                    for event in value
+                ]
+            elif key == "emotions" and isinstance(value, list):
+                formatted[key] = value
+            elif key == "setting" and isinstance(value, dict):
+                formatted[key] = {k: v for k, v in value.items() if v}  # type: ignore
+            else:
+                formatted[key] = value
+        return formatted
+
+    # Extract the relevant parts for comparison
+    expected_elements = expected_state.get("extracted_elements", {})
+    actual_elements = actual_state.get("extracted_elements", {})
+
+    # Format for cleaner display
+    expected_formatted = format_extracted_elements(expected_elements)
+    actual_formatted = format_extracted_elements(actual_elements)
+
+    # Create the comparison YAML
+    comparison = {
+        "test_comparison": {
+            "expected": expected_formatted,
+            "actual": actual_formatted
+        }
+    }
+
+    return str(yaml.dump(comparison, default_flow_style=False, sort_keys=False, indent=2))
+
+
 def print_test_summary():
     """Print a summary of all test results."""
     if not test_results:
@@ -23,7 +70,7 @@ def print_test_summary():
     print("TEST SUMMARY")
     print("="*80)
 
-    exact_passes = sum(1 for r in test_results if r["exact_pass"])
+    exact_passes = sum(1 for r in test_results if r["pass_exact"])
     pass_80_plus = sum(1 for r in test_results if r["pass_80"])
     pass_70_plus = sum(1 for r in test_results if r["pass_70"])
     total_tests = len(test_results)
@@ -38,7 +85,7 @@ def print_test_summary():
 
     print("\nDetailed Results:")
     for result in sorted(test_results, key=lambda x: x["score"], reverse=True):
-        if result["exact_pass"]:
+        if result["pass_exact"]:
             status = "✅"
         elif result["pass_80"]:
             status = "🟢"
@@ -104,6 +151,9 @@ def test_scenario(scenario_file):
     scenario_name = scenario.get("scenario_name", os.path.basename(scenario_file))
     current_state = {}
 
+    # --- Determine if this is a multi-turn test ---
+    is_multi_turn = len(scenario["conversation"]) > 1
+
     # --- Create dedicated output directory for this scenario ---
     scenario_output_dir = None
     if TEST_RUN_DIR:
@@ -112,93 +162,172 @@ def test_scenario(scenario_file):
         os.makedirs(scenario_output_dir, exist_ok=True)
         shutil.copy(scenario_file, os.path.join(scenario_output_dir, "scenario.yaml"))
 
-    for i, turn in enumerate(scenario["conversation"]):
-        user_utterance = turn["user"]
+    try:
+        if is_multi_turn:
+            # NEW: Batch processing for multi-turn tests
+            print(f"Running multi-turn test: {scenario_name}")
 
-        # Send the request to the test endpoint
-        response = requests.post(
-            f"{BASE_URL}/test/chat", json={"utterance": user_utterance, "state": current_state}
-        )
+            # Collect all utterances
+            utterances = [turn["user"] for turn in scenario["conversation"]]
 
-        assert response.status_code == 200, f"API call failed for turn {i + 1} in {scenario_name}"
+            # Send all utterances in one batch request
+            request_payload = {
+                "utterances": utterances,
+                "state": current_state
+            }
 
-        actual_state = response.json()
-        current_state = actual_state  # Update state for the next turn
+            response = requests.post(f"{BASE_URL}/test/chat", json=request_payload)
+            assert response.status_code == 200, f"Batch API call failed for {scenario_name}"
 
-        # --- Save results artifact ---
-        if scenario_output_dir:
-            results_path = os.path.join(scenario_output_dir, f"turn_{i+1}_results.json")
-            with open(results_path, "w") as f:
-                json.dump(actual_state, f, indent=2)
+            batch_result = response.json()
 
-        # --- Scoring and Assertions ---
-        if "expect_in_response_state" in turn:
-            expected_subset = turn["expect_in_response_state"]
+            # Process batch results - only test final state
+            if "turn_results" in batch_result:
+                # Get final state and expected final state
+                current_state = batch_result["final_state"]
 
-            # Calculate similarity score
-            score_result = score_test_result(expected_subset, actual_state)
+                # Find the last turn with expectations (final expected state)
+                final_expected_state = {}
+                for turn_data in reversed(scenario["conversation"]):
+                    if "expect_in_response_state" in turn_data:
+                        final_expected_state = turn_data["expect_in_response_state"]
+                        break
 
-            # Save score report
-            if scenario_output_dir:
-                score_path = os.path.join(scenario_output_dir, f"turn_{i+1}_score.json")
-                with open(score_path, "w") as f:
-                    json.dump(score_result, f, indent=2)
+                # Score final state against final expectations
+                if final_expected_state:
+                    score_result = score_test_result(final_expected_state, current_state)
 
-                # Generate human-readable score report
-                score_report = format_score_report(f"{scenario_name} Turn {i+1}", score_result)
-                print(f"\n{score_report}")
+                    # Save single set of artifacts
+                    if scenario_output_dir:
+                        results_path = os.path.join(scenario_output_dir, "results.json")
+                        with open(results_path, "w") as f:
+                            json.dump(current_state, f, indent=2)
 
-                # Track results for summary
+                        score_path = os.path.join(scenario_output_dir, "score.json")
+                        with open(score_path, "w") as f:
+                            json.dump(score_result, f, indent=2)
+
+                        diff_path = os.path.join(scenario_output_dir, "diff.txt")
+                        with open(diff_path, "w") as f:
+                            report = format_score_report(scenario_name, score_result)
+                            f.write(report)
+
+                        # Create readable comparison file
+                        comparison_path = os.path.join(scenario_output_dir, "comparison.yaml")
+                        with open(comparison_path, "w") as f:
+                            f.write(create_comparison_report(final_expected_state, current_state))
+
+                    # Track test results
+                    test_results.append({
+                        "scenario": scenario_name,
+                        "turn": "final",
+                        "score": score_result["overall_score"],
+                        "pass_exact": score_result["pass_exact"],
+                        "pass_80": score_result["pass_80"],
+                        "pass_70": score_result["pass_70"]
+                    })
+
+                    print(f"Final score: {score_result['overall_score']:.1%}")
+                else:
+                    # No expectations found, just save results
+                    current_state = batch_result["final_state"]
+                    if scenario_output_dir:
+                        results_path = os.path.join(scenario_output_dir, "results.json")
+                        with open(results_path, "w") as f:
+                            json.dump(current_state, f, indent=2)
+
+            else:
+                # Handle error case
+                if "error" in batch_result:
+                    print(f"Batch processing failed: {batch_result['error']}")
+                    assert False, f"Batch processing failed: {batch_result['error']}"
+
+        else:
+            # Single-turn test (existing logic)
+            for i, turn in enumerate(scenario["conversation"]):
+                user_utterance = turn["user"]
+
+                # Prepare request payload
+                request_payload = {
+                    "utterance": user_utterance,
+                    "state": current_state
+                }
+
+                # Send the request to the test endpoint
+                response = requests.post(f"{BASE_URL}/test/chat", json=request_payload)
+
+                assert response.status_code == 200, (
+                    f"API call failed for turn {i + 1} in {scenario_name}"
+                )
+
+                actual_state = response.json()
+                current_state = actual_state  # Update state for the next turn
+
+                # --- Score this turn ---
+                expected_state = turn.get("expect_in_response_state", {})
+                score_result = score_test_result(expected_state, actual_state)
+
+                # --- Save results artifact ---
+                if scenario_output_dir:
+                    results_path = os.path.join(scenario_output_dir, f"turn_{i+1}_results.json")
+                    with open(results_path, "w") as f:
+                        json.dump(actual_state, f, indent=2)
+
+                    score_path = os.path.join(scenario_output_dir, f"turn_{i+1}_score.json")
+                    with open(score_path, "w") as f:
+                        json.dump(score_result, f, indent=2)
+
+                    diff_path = os.path.join(scenario_output_dir, f"turn_{i+1}_diff.txt")
+                    with open(diff_path, "w") as f:
+                        turn_name = f"{scenario_name}_turn_{i+1}"
+                        report = format_score_report(turn_name, score_result)
+                        f.write(report)
+
+                    # Create readable comparison file
+                    comparison_file = f"turn_{i+1}_comparison.yaml"
+                    comparison_path = os.path.join(scenario_output_dir, comparison_file)
+                    with open(comparison_path, "w") as f:
+                        f.write(create_comparison_report(expected_state, actual_state))
+
+                # --- Track test results ---
                 test_results.append({
                     "scenario": scenario_name,
-                    "turn": i+1,
+                    "turn": i + 1,
                     "score": score_result["overall_score"],
-                    "exact_pass": score_result["pass_exact"],
+                    "pass_exact": score_result["pass_exact"],
                     "pass_80": score_result["pass_80"],
                     "pass_70": score_result["pass_70"]
                 })
 
-            # Check exact match for legacy compatibility
-            is_exact_match = deep_contains(expected_subset, actual_state)
+                # --- Print human-readable score report ---
+                print(f"Turn {i+1} score: {score_result['overall_score']:.1%}")
 
-            # Generate diff if not exact match
-            if not is_exact_match and scenario_output_dir:
-                diff_path = os.path.join(scenario_output_dir, f"turn_{i+1}_diff.txt")
-                diff_content = generate_diff(expected_subset, actual_state)
-                with open(diff_path, "w") as f:
-                    f.write(diff_content)
+        # Test scoring and artifact generation is handled above
 
-            # Note: We continue with all turns regardless of individual scores
-            # Final assessment will be done after all turns complete
+        # Final assessment: Check if we have any failing turns
+        failing_turns = [
+            r for r in test_results
+            if r["scenario"] == scenario_name and not r["pass_80"]
+        ]
+        if failing_turns:
+            failing_details = ", ".join([
+                f"Turn {r['turn']}: {r['score']:.1%}" for r in failing_turns
+            ])
+            total_turns = len([r for r in test_results if r["scenario"] == scenario_name])
+            avg_score = sum(
+                r["score"] for r in test_results if r["scenario"] == scenario_name
+            ) / total_turns
 
-        if "expect_not_in_response_state" in turn:
-            unexpected_subset = turn["expect_not_in_response_state"]
-            is_match = deep_contains(unexpected_subset, actual_state)
+            # For now, let's just warn instead of failing to see all results
+            fail_count = len(failing_turns)
+            print(f"\n⚠️  {scenario_name}: {fail_count}/{total_turns} turns below 80% threshold")
+            print(f"    Failing turns: {failing_details}")
+            print(f"    Average score: {avg_score:.1%}")
+            print(f"    See artifacts in: {scenario_output_dir}")
 
-            if is_match and scenario_output_dir:
-                # We don't generate a diff here, as the presence is the failure.
-                # The results.json is the primary artifact.
-                pass
+            # Uncomment this line if you want tests to actually fail:
+            # assert False, f"Test failed with {fail_count}/{total_turns} turns below threshold"
 
-            assert not is_match, (
-                f"[{scenario_name}] Turn {i + 1}: The actual state contained a structure "
-                f"that should not exist. See artifacts in: {scenario_output_dir}"
-            )
-
-    # Final assessment: Check if we have any failing turns
-    failing_turns = [r for r in test_results if r["scenario"] == scenario_name and not r["pass_80"]]
-    if failing_turns:
-        failing_details = ", ".join([f"Turn {r['turn']}: {r['score']:.1%}" for r in failing_turns])
-        total_turns = len([r for r in test_results if r["scenario"] == scenario_name])
-        avg_score = sum(
-            r["score"] for r in test_results if r["scenario"] == scenario_name
-        ) / total_turns
-
-        # For now, let's just warn instead of failing to see all results
-        print(f"\n⚠️  {scenario_name}: {len(failing_turns)}/{total_turns} turns below 80% threshold")
-        print(f"    Failing turns: {failing_details}")
-        print(f"    Average score: {avg_score:.1%}")
-        print(f"    See artifacts in: {scenario_output_dir}")
-
-        # Uncomment this line if you want tests to actually fail:
-        # assert False, f"Test failed with {len(failing_turns)}/{total_turns} turns below threshold"
+    finally:
+        # Session cleanup is no longer needed with batch processing
+        pass

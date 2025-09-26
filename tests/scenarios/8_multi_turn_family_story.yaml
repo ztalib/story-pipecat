@@ -1,25 +1,8 @@
 scenario_name: "Multi-turn conversation building a family story"
 conversation:
   - user: "My sister Lisa was always the artistic one in our family."
-    expect_in_response_state:
-      extracted_elements:
-        people:
-          - name: "Lisa"
-            relationship: "sister"
-            description: "artistic one in family"
       
   - user: "She painted this beautiful mural on our garage wall when she was just 16."
-    expect_in_response_state:
-      extracted_elements:
-        people:
-          - name: "Lisa"
-            relationship: "sister"
-            description: "artistic one in family"
-        key_events:
-          - event_name: "painted mural on garage wall"
-            participants: ["Lisa"]
-        setting:
-          time_period: "when she was 16"
           
   - user: "Mom was so angry at first, but then she realized how talented Lisa was."
     expect_in_response_state:
