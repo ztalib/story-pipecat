@@ -20,7 +20,7 @@ User → WebRTC (Audio) → Pipecat Pipeline → WebSocket (Transcripts) → UI
 ### Prerequisites
 ```bash
 # Set up environment
-source myenv/bin/activate
+source venv/bin/activate
 pip install -r requirements.txt
 ruff check . --fix 
 

@@ -226,8 +226,19 @@ async def run_bot(transport, convo_dir: str):
         # We still need to cancel the task to gracefully shut down the pipeline.
         await task.cancel()
 
+    # Simple timeout implementation
+    timeout_seconds = config.session_timeout_seconds
+    print(f"Session timeout set to {timeout_seconds} seconds")
+    
     runner = PipelineRunner()
-    await runner.run(task)
+    
+    try:
+        # Run the pipeline with timeout
+        await asyncio.wait_for(runner.run(task), timeout=timeout_seconds)
+    except asyncio.TimeoutError:
+        print(f"Session timed out after {timeout_seconds} seconds")
+        await task.cancel()
+        await transport.close()
 
 
 # -----------------

@@ -203,6 +203,8 @@
         let ws = null;
         let isConnected = false;
         let currentBotMessage = null;
+        let sessionStartTime = null;
+        let clientTimeoutId = null;
 
         const statusEl = document.getElementById('status');
         const startBtn = document.getElementById('startBtn');
@@ -226,6 +228,21 @@
         function setStatusText(message, isRecording = false) {
             statusTextEl.textContent = message;
             statusTextEl.className = isRecording ? 'status-text recording' : 'status-text normal';
+        }
+
+        // Show timeout message
+        function showTimeoutMessage() {
+            console.log('Showing timeout message');
+            setStatus('Session Timed Out', 'error');
+            setStatusText('Session ended after 10 seconds. Refresh the page to start a new conversation.', false);
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            startBtn.disabled = false;
+            isConnected = false;
+            if (clientTimeoutId) {
+                clearTimeout(clientTimeoutId);
+                clientTimeoutId = null;
+            }
         }
 
         // Add message to chat
@@ -312,15 +329,41 @@
                     startBtn.style.display = 'none';
                     stopBtn.style.display = 'inline-block';
                     isConnected = true;
+                    sessionStartTime = Date.now();
+                    
+                    // Set client-side timeout as backup (12 seconds to be after server timeout)
+                    if (clientTimeoutId) clearTimeout(clientTimeoutId);
+                    clientTimeoutId = setTimeout(() => {
+                        console.log('Client-side timeout triggered');
+                        showTimeoutMessage();
+                    }, 12000);
                 });
 
                 callObject.on('left-meeting', () => {
-                    statusEl.style.display = 'none';
-                    setStatusText('');
-                    startBtn.style.display = 'inline-block';
-                    stopBtn.style.display = 'none';
-                    startBtn.disabled = false;
-                    isConnected = false;
+                    console.log('Left meeting event triggered');
+                    // Check if this was likely a timeout (session lasted around 10 seconds)
+                    const sessionDuration = sessionStartTime ? (Date.now() - sessionStartTime) / 1000 : 0;
+                    console.log(`Session duration: ${sessionDuration} seconds`);
+                    const isTimeout = sessionDuration >= 8 && sessionDuration <= 15; // Allow some variance
+                    
+                    if (isTimeout) {
+                        console.log('Detected timeout from left-meeting event');
+                        showTimeoutMessage();
+                    } else {
+                        console.log('Manual disconnect detected');
+                        statusEl.style.display = 'none';
+                        setStatusText('');
+                        startBtn.style.display = 'inline-block';
+                        stopBtn.style.display = 'none';
+                        startBtn.disabled = false;
+                        isConnected = false;
+                    }
+                    
+                    sessionStartTime = null;
+                    if (clientTimeoutId) {
+                        clearTimeout(clientTimeoutId);
+                        clientTimeoutId = null;
+                    }
                 });
 
                 callObject.on('error', (error) => {
@@ -355,6 +398,10 @@
 
         // Stop conversation
         async function stopConversation() {
+            if (clientTimeoutId) {
+                clearTimeout(clientTimeoutId);
+                clientTimeoutId = null;
+            }
             if (callObject) {
                 await callObject.leave();
                 callObject.destroy();

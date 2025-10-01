@@ -15,6 +15,10 @@ class AppConfig:
     @property
     def system_prompt(self) -> str:
         return str(self._prompts.get("system_prompt", ""))
+    
+    @property
+    def session_timeout_seconds(self) -> int:
+        return int(self._settings.get("session", {}).get("timeout_seconds", 300))
 
 
 def load_config() -> AppConfig:
