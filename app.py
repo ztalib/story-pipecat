@@ -260,6 +260,13 @@ async def websocket_endpoint(websocket: WebSocket):
         manager.disconnect(websocket)
 
 
+@app.get("/config")
+async def get_config():
+    """Get application configuration for the client"""
+    return {
+        "session_timeout_seconds": config.session_timeout_seconds
+    }
+
 @app.post("/start-bot")
 async def start_bot(request: dict, background_tasks: BackgroundTasks):
     """Start bot in a Daily room"""

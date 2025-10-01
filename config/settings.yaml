@@ -5,4 +5,4 @@ llm:
   temperature: 0.7
 
 session:
-  timeout_seconds: 120  # Set to 10 for testing, change to 300 for production (5 minutes)
+  timeout_seconds: 180  # Set to 10 for testing, change to 300 for production (5 minutes)
